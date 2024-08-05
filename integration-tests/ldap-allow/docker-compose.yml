@@ -1,0 +1,42 @@
+version: '3.7'
+services:
+  postfix_test_587:
+    hostname: "postfix"
+    image: "boky/postfix"
+    restart: always
+    healthcheck:
+      test: [ "CMD", "sh", "-c", "netstat -an | fgrep 587 | fgrep -q LISTEN" ]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 2
+    volumes:
+      - "./restricted-senders.cf:/etc/postfix/conf/restricted-senders.cf"
+    environment:
+      FORCE_COLOR: "1"
+      ALLOWED_SENDER_DOMAINS: "example.org"
+      POSTFIX_smtpd_sender_restrictions: "check_client_access ldap:/etc/postfix/conf/restricted-senders.cf"
+  ldap:
+    hostname: "ldap"
+    image: "thoteam/slapd-server-mock"
+    restart: always
+    healthcheck:
+      test: [ "CMD", "sh", "-c", "netstat -an | fgrep 389 | fgrep -q LISTEN" ]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 2
+    volumes:
+      - "./config.ldif:/bootstrap/config.ldif.TEMPLATE"
+      - "./data.ldif:/bootstrap/data.ldif.TEMPLATE"
+  tests:
+    image: "boky/postfix-integration-test"
+    restart: "no"
+    volumes:
+      - "../tester:/code"
+    build:
+      context: ../tester
+    command: "/" # relative path to /code
+    environment:
+      FROM: "demo@example.org"
+      TO: "test@gmail.com"
